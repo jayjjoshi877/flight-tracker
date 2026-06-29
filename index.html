@@ -141,7 +141,7 @@
 
   <footer>
     Clocks &amp; status update automatically from your device. “In Air / Landed” reflects scheduled times —
-    tap <b>Track Live</b> on any leg for the real position. Flight times are local to each airport.
+    tap <b>Live Map</b> on any leg for the route &amp; real position (the plane appears on the map once it's airborne). Flight times are local to each airport.
   </footer>
 </div>
 
@@ -208,8 +208,9 @@ function legCard(l,i){
     <div class="miniprog" id="mp_${i}"><div class="f" id="mpf_${i}"></div></div>
     <div class="cd2" id="cd_${i}"></div>
     <div class="btns">
-      <a class="btn b1" target="_blank" href="https://www.flightradar24.com/data/flights/${code(l)}">🔵 Track Live</a>
-      <a class="btn b2" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent(l.fno+' flight status')}">⚪ Quick Status</a>
+      <a class="btn b1" target="_blank" href="https://www.flightaware.com/live/flight/${l.fno.replace(/\s/g,'')}">🗺️ Live Map</a>
+      <a class="btn b2" target="_blank" href="https://www.flightradar24.com/data/flights/${code(l)}">🔵 FR24</a>
+      <a class="btn b2" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent(l.fno+' flight status')}">⚪ Status</a>
     </div>
   </div>`;
 }
