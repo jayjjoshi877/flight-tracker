@@ -182,7 +182,9 @@ const planeMarker = L.marker(AP.AMD.ll,{icon:L.divIcon({html:'✈️',className:
 
 // ---------- External links ----------
 const code = f => f.fno.replace(/\s/g,'').toLowerCase();
-document.getElementById('frLive').href = "https://www.flightradar24.com/data/flights/"+code(ALL[0]);
+const ICAO = {AI:'AIC',LH:'DLH',AC:'ACA',EK:'UAE'};
+function callsign(l){const p=l.fno.split(' ');return (ICAO[p[0]]||p[0])+p[1];}
+document.getElementById('frLive').href = "https://www.flightradar24.com/"+callsign(ALL[0]);
 document.getElementById('fa').href = "https://www.flightaware.com/live/flight/"+ALL[0].fno.replace(/\s/g,'');
 document.getElementById('gcmap').href = "http://www.gcmap.com/mapui?P=AMD-DEL-FRA-YVR-YEG";
 
@@ -208,8 +210,8 @@ function legCard(l,i){
     <div class="miniprog" id="mp_${i}"><div class="f" id="mpf_${i}"></div></div>
     <div class="cd2" id="cd_${i}"></div>
     <div class="btns">
-      <a class="btn b1" target="_blank" href="https://www.flightaware.com/live/flight/${l.fno.replace(/\s/g,'')}">🗺️ Live Map</a>
-      <a class="btn b2" target="_blank" href="https://www.flightradar24.com/data/flights/${code(l)}">🔵 FR24</a>
+      <a class="btn b1" target="_blank" href="https://www.flightradar24.com/${callsign(l)}">🔴 Live Map</a>
+      <a class="btn b2" target="_blank" href="https://www.flightaware.com/live/flight/${l.fno.replace(/\s/g,'')}">✈️ FlightAware</a>
       <a class="btn b2" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent(l.fno+' flight status')}">⚪ Status</a>
     </div>
   </div>`;
