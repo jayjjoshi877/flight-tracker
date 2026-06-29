@@ -122,7 +122,7 @@
     <div class="clk me"><div class="ck-loc">📍 Edmonton (you)</div><div class="ck-t" id="ckED">--:--:--</div><div class="ck-d" id="ckEDd"></div></div>
   </div>
   <div class="landbox" id="landbox">🛬 Calculating landing time…</div>
-  <div class="disc">⚠ The status below is based on the <b>scheduled timetable</b> — a flight can land earlier or later. For the <b>real</b> time &amp; position, tap <b>🔴 Live Map</b> or <b>⚪ Status</b> on any flight.</div>
+  <div class="disc">✈ <b>LIVE</b> = real position from live aircraft signals (updates every minute). When a plane isn't in radar range, status falls back to the <b>scheduled timetable</b> and may differ from the actual time — tap <b>⚪ Status</b> on a flight to confirm.</div>
 
   <div class="stepper">
     <div class="nodes" id="nodes"></div>
@@ -265,6 +265,23 @@ function fmtDur(msleft){
 }
 function interp(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
 
+// ---------- Live ADS-B data (free, no key) ----------
+const live = [];
+async function refreshLive(){
+  for(let i=0;i<OUT.length;i++){
+    try{
+      const r = await fetch('https://api.airplanes.live/v2/callsign/'+callsign(OUT[i]));
+      const j = await r.json();
+      if(j.ac && j.ac.length){
+        const a=j.ac[0]; const onG=(a.alt_baro==='ground'||a.alt_baro==null);
+        live[i]={found:true,ground:onG,alt:(onG?0:Number(a.alt_baro)||0),gs:Number(a.gs)||0,lat:a.lat,lon:a.lon};
+      } else { live[i]={found:false}; }
+    }catch(e){ if(!live[i]) live[i]={found:false}; }
+    await new Promise(res=>setTimeout(res,1200)); // ~1 req/sec, be polite
+  }
+}
+refreshLive(); setInterval(refreshLive,60000);
+
 // ---------- Live tick ----------
 function tick(){
   const now = Date.now();
@@ -278,25 +295,33 @@ function tick(){
   document.getElementById('ckTR').textContent=clk(AP[tn.code].tz);
   document.getElementById('ckTRd').textContent=(tn.air?"✈ heading to ":"📍 ")+tn.code+" · "+cdate(AP[tn.code].tz);
 
-  // per-leg status
+  // per-leg status — LIVE ADS-B first, schedule as fallback
   ALL.forEach((l,i)=>{
     const d=ms(l.dep), a=ms(l.arr);
     const st=document.getElementById('st_'+i), cd=document.getElementById('cd_'+i);
     const mp=document.getElementById('mp_'+i), mpf=document.getElementById('mpf_'+i);
     const card=document.getElementById('card_'+i);
     st.className='status'; mp.style.display='none'; cd.textContent=''; card.classList.remove('live');
-    if(now < d){
-      const soon=(d-now)<=4*3600*1000;
-      st.classList.add(soon?'s-soon':'s-sched');
-      st.textContent = soon?'BOARDING SOON':'SCHEDULED';
-      cd.textContent = 'Departs in '+fmtDur(d-now);
-    } else if(now <= a){
-      st.classList.add('s-air'); st.textContent='IN AIR'; card.classList.add('live');
-      const p=Math.min(1,(now-d)/(a-d));
-      mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%';
-      cd.textContent = 'Scheduled to land in '+fmtDur(a-now)+' · '+(p*100).toFixed(0)+'% · tap Status for actual';
+    const lv=live[i];
+    if(lv && lv.found && !lv.ground){
+      st.classList.add('s-air'); st.textContent='✈ IN AIR · LIVE'; card.classList.add('live');
+      cd.textContent='Live · '+(lv.alt).toLocaleString()+' ft · '+Math.round(lv.gs)+' kt';
+      const p=Math.min(1,Math.max(0,(now-d)/(a-d))); mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%';
+    } else if(lv && lv.found && lv.ground){
+      if(now<d){ st.classList.add('s-soon'); st.textContent='AT AIRPORT · LIVE'; cd.textContent='On the ground before departure'; }
+      else { st.classList.add('s-land'); st.textContent='ON GROUND · LIVE'; cd.textContent='On the ground (landed / taxiing)'; }
     } else {
-      st.classList.add('s-land'); st.textContent='LANDED ✓';
+      if(now < d){
+        const soon=(d-now)<=4*3600*1000;
+        st.classList.add(soon?'s-soon':'s-sched'); st.textContent=soon?'BOARDING SOON':'SCHEDULED';
+        cd.textContent='Departs in '+fmtDur(d-now);
+      } else if(now <= a){
+        const p=(now-d)/(a-d);
+        if(p>=0.85){ st.classList.add('s-land'); st.textContent='🛬 LIKELY LANDED'; cd.textContent='Not airborne now · tap Status to confirm'; }
+        else { st.classList.add('s-air'); st.textContent='EN ROUTE (sched)'; mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%'; cd.textContent='Sched. landing in '+fmtDur(a-now)+' · not currently tracked'; }
+      } else {
+        st.classList.add('s-land'); st.textContent='LANDED (likely)'; cd.textContent='Past scheduled arrival · tap Status to confirm';
+      }
     }
   });
 
@@ -329,25 +354,36 @@ function tick(){
     else if(legEnd && now>ms(legEnd.arr)) node.classList.add('done');
     if(legStart && now>=ms(legStart.dep) && now<=ms(legStart.arr)) node.classList.add('active');
   });
-  if(activeIdx>=0){ planeMarker.setLatLng(planePos); if(!map.hasLayer(planeMarker))planeMarker.addTo(map);}
+  let lp=null;
+  OUT.forEach((l,i)=>{ if(live[i]&&live[i].found&&!live[i].ground&&live[i].lat!=null) lp=[live[i].lat,live[i].lon]; });
+  if(lp){ planeMarker.setLatLng(lp); if(!map.hasLayer(planeMarker))planeMarker.addTo(map); }
+  else if(activeIdx>=0){ planeMarker.setLatLng(planePos); if(!map.hasLayer(planeMarker))planeMarker.addTo(map);}
   else if(map.hasLayer(planeMarker)) map.removeLayer(planeMarker);
 
   // top banner
-  let cur=ALL.find(l=>now<=ms(l.arr));
   const bLbl=document.getElementById('bLbl'),bMain=document.getElementById('bMain'),
         bCd=document.getElementById('bCd'),bNote=document.getElementById('bNote');
-  if(!cur){
-    bLbl.textContent='JOURNEY'; bMain.textContent='Arrived in Edmonton ✓'; bCd.textContent='🎉'; bNote.textContent='';
+  let liveIdx=-1; OUT.forEach((l,i)=>{ if(live[i]&&live[i].found&&!live[i].ground) liveIdx=i; });
+  if(liveIdx>=0){
+    const l=OUT[liveIdx];
+    bLbl.textContent='✈ IN THE AIR · LIVE'; bMain.textContent=`${l.fno} · ${l.fr} → ${l.to}`;
+    bCd.textContent=(live[liveIdx].alt).toLocaleString()+' ft';
+    bNote.textContent='Live altitude · '+Math.round(live[liveIdx].gs)+' kt ground speed';
   } else {
-    const d=ms(cur.dep), a=ms(cur.arr);
-    if(now<d){
-      bLbl.textContent='NEXT FLIGHT'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
-      bCd.textContent='Departs in '+fmtDur(d-now);
-      bNote.textContent=`Scheduled ${cur.dloc} ${cur.dlocd} (local ${cur.fr})`;
+    let cur=ALL.find(l=>now<=ms(l.arr));
+    if(!cur){
+      bLbl.textContent='JOURNEY'; bMain.textContent='Arrived in Edmonton ✓'; bCd.textContent='🎉'; bNote.textContent='';
     } else {
-      bLbl.textContent='IN THE AIR (scheduled)'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
-      bCd.textContent='Sched. landing in '+fmtDur(a-now);
-      bNote.textContent=`Scheduled arrival ${cur.aloc} ${cur.alocd} (local ${cur.to}) · tap Status for actual`;
+      const d=ms(cur.dep), a=ms(cur.arr);
+      if(now<d){
+        bLbl.textContent='NEXT FLIGHT'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
+        bCd.textContent='Departs in '+fmtDur(d-now);
+        bNote.textContent=`Scheduled ${cur.dloc} ${cur.dlocd} (local ${cur.fr})`;
+      } else {
+        bLbl.textContent='EN ROUTE (scheduled)'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
+        bCd.textContent='Sched. landing in '+fmtDur(a-now);
+        bNote.textContent=`Not currently tracked · tap Status for the actual time`;
+      }
     }
   }
 }
