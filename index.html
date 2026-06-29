@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journey Tracker · Ahmedabad → Edmonton</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#0b1220;--card:#141d33;--card2:#1b2742;--line:#26324f;--txt:#eaf0ff;
+    --mut:#93a2c4;--blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--pill:#0f1830;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0b1220,#0e1730);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;}
+  .wrap{max-width:860px;margin:0 auto;}
+  h1{font-size:21px;margin:0 0 4px;text-align:center;}
+  .sub{color:var(--mut);font-size:13px;text-align:center;margin-bottom:16px;}
+
+  /* Live banner */
+  .banner{background:linear-gradient(135deg,#13294a,#1b3a6b);border:1px solid #2b4f86;
+    border-radius:16px;padding:16px 18px;margin-bottom:14px;text-align:center;}
+  .banner .lbl{font-size:11px;letter-spacing:1.5px;color:#9fc0ff;font-weight:700;}
+  .banner .main{font-size:20px;font-weight:800;margin:6px 0;}
+  .banner .cd{font-size:30px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;}
+  .banner .note{font-size:12px;color:var(--mut);margin-top:4px;}
+
+  /* Clocks */
+  .clocks{display:flex;gap:10px;margin-bottom:12px;}
+  .clk{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center;}
+  .clk.me{border-color:#2b6cb0;background:linear-gradient(135deg,#13233f,#16345c);}
+  .ck-loc{font-size:11px;color:var(--mut);font-weight:700;margin-bottom:4px;}
+  .ck-t{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .ck-d{font-size:10.5px;color:var(--mut);margin-top:2px;}
+  .landbox{background:linear-gradient(135deg,#0e2b1c,#11402a);border:1px solid #2f7d52;
+    border-radius:14px;padding:13px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.5;color:#d8f5e4;}
+  .landbox b{color:#fff;}
+
+  /* Overall progress stepper */
+  .stepper{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 14px 10px;margin-bottom:16px;}
+  .stepbar{position:relative;height:6px;background:var(--line);border-radius:6px;margin:30px 12px 6px;}
+  .stepfill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:6px;width:0%;transition:width .6s;}
+  .plane{position:absolute;top:-9px;font-size:18px;transform:translateX(-50%);transition:left .6s;}
+  .nodes{display:flex;justify-content:space-between;margin:0 0 4px;}
+  .node{flex:1;text-align:center;position:relative;}
+  .dot{width:14px;height:14px;border-radius:50%;background:var(--line);border:2px solid #2b3a5c;margin:0 auto 4px;margin-top:-40px;position:relative;z-index:2;}
+  .node.done .dot{background:var(--green);border-color:var(--green);}
+  .node.active .dot{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 5px rgba(245,158,11,.25);}
+  .node .code{font-size:13px;font-weight:800;}
+  .node .nm{font-size:9.5px;color:var(--mut);}
+
+  /* Map */
+  #map{height:340px;border-radius:16px;border:1px solid var(--line);margin-bottom:8px;}
+  .maplinks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .maplinks a{flex:1;min-width:120px;text-align:center;text-decoration:none;font-size:12px;font-weight:700;padding:9px;border-radius:10px;background:var(--card2);color:var(--txt);border:1px solid var(--line);}
+
+  .secttl{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin:6px 4px 10px;font-weight:700;}
+
+  /* Leg cards */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:0;}
+  .card.live{border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,158,11,.2);}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  .fno{font-size:16px;font-weight:800;}
+  .carrier{font-size:11px;color:var(--mut);}
+  .status{font-size:11px;font-weight:800;padding:5px 10px;border-radius:20px;white-space:nowrap;}
+  .s-sched{background:rgba(147,162,196,.15);color:var(--mut);border:1px solid #33415f;}
+  .s-soon{background:rgba(245,158,11,.18);color:var(--amber);border:1px solid rgba(245,158,11,.4);}
+  .s-air{background:rgba(59,130,246,.2);color:#7db0ff;border:1px solid rgba(59,130,246,.5);}
+  .s-land{background:rgba(34,197,94,.18);color:#5ee08a;border:1px solid rgba(34,197,94,.4);}
+  .route{display:flex;align-items:center;gap:8px;margin:4px 0 10px;}
+  .pt{flex:1;text-align:center;}
+  .pcode{font-size:22px;font-weight:800;}
+  .pcity{font-size:10px;color:var(--mut);}
+  .ptime{font-size:13px;margin-top:3px;}
+  .pdate{font-size:10px;color:var(--mut);}
+  .mid{flex:0 0 auto;text-align:center;color:var(--blue);font-size:11px;}
+  .miniprog{height:4px;background:var(--line);border-radius:4px;margin:8px 16px 2px;position:relative;display:none;}
+  .miniprog .f{position:absolute;height:100%;background:var(--blue);border-radius:4px;}
+  .cd2{font-size:12px;color:var(--amber);text-align:center;margin-bottom:8px;font-weight:700;}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;}
+  a.btn{flex:1;min-width:110px;text-align:center;text-decoration:none;font-weight:700;font-size:12px;padding:10px;border-radius:10px;}
+  .b1{background:var(--blue);color:#fff;}
+  .b2{background:transparent;color:var(--txt);border:1px solid var(--line);}
+
+  /* Layover connector graphic */
+  .layover{display:flex;align-items:center;gap:12px;margin:0 18px;padding:11px 14px;
+    background:repeating-linear-gradient(135deg,#101a30,#101a30 8px,#13203a 8px,#13203a 16px);
+    border-left:3px dashed #3a4d75;border-right:3px dashed #3a4d75;}
+  .layover.act{background:linear-gradient(135deg,#2a1f0c,#3a2a10);border-color:var(--amber);
+    box-shadow:inset 0 0 0 1px rgba(245,158,11,.4);animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:inset 0 0 0 1px rgba(245,158,11,.35)}50%{box-shadow:inset 0 0 0 1px rgba(245,158,11,.9)}}
+  .lay-ic{font-size:18px;letter-spacing:-2px;}
+  .lay-tx{flex:1;font-size:12px;}
+  .lay-tx b{display:block;font-size:13px;}
+  .lay-tx span{color:var(--mut);}
+  .lay-st{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:14px;background:rgba(147,162,196,.14);color:var(--mut);border:1px solid #33415f;white-space:nowrap;}
+  .lay-st.warn{background:rgba(239,68,68,.16);color:#ff9a9a;border-color:rgba(239,68,68,.4);}
+  .lay-st.now{background:rgba(245,158,11,.2);color:var(--amber);border-color:rgba(245,158,11,.5);}
+
+  footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:14px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✈️ Journey Tracker — Ahmedabad → Edmonton</h1>
+  <div class="sub">Live flight status · updates automatically on this page</div>
+
+  <div class="banner">
+    <div class="lbl" id="bLbl">NEXT FLIGHT</div>
+    <div class="main" id="bMain">—</div>
+    <div class="cd" id="bCd">—</div>
+    <div class="note" id="bNote"></div>
+  </div>
+
+  <!-- 3-way live clocks -->
+  <div class="clocks">
+    <div class="clk"><div class="ck-loc">🏠 India (home)</div><div class="ck-t" id="ckIN">--:--:--</div><div class="ck-d" id="ckINd"></div></div>
+    <div class="clk"><div class="ck-loc">🧳 Traveller now</div><div class="ck-t" id="ckTR">--:--:--</div><div class="ck-d" id="ckTRd"></div></div>
+    <div class="clk me"><div class="ck-loc">📍 Edmonton (you)</div><div class="ck-t" id="ckED">--:--:--</div><div class="ck-d" id="ckEDd"></div></div>
+  </div>
+  <div class="landbox" id="landbox">🛬 Calculating landing time…</div>
+
+  <div class="stepper">
+    <div class="nodes" id="nodes"></div>
+    <div class="stepbar"><div class="stepfill" id="stepfill"></div><div class="plane" id="planeIcon">✈️</div></div>
+    <div style="display:flex;justify-content:space-between;color:var(--mut);font-size:11px;margin:6px 10px 0;">
+      <span>Departure</span><span id="ovPct">0% of journey</span><span>Arrival</span>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <div class="maplinks">
+    <a id="frLive" target="_blank">🗺️ Flightradar24 Live Map</a>
+    <a id="gcmap" target="_blank">🌍 Full Route Map (GC Mapper)</a>
+    <a id="fa" target="_blank">📡 FlightAware</a>
+  </div>
+
+  <div class="secttl">Your flights — Ahmedabad → Edmonton (28–30 Jun 2026)</div>
+  <div id="legs"></div>
+
+  <footer>
+    Clocks &amp; status update automatically from your device. “In Air / Landed” reflects scheduled times —
+    tap <b>Track Live</b> on any leg for the real position. Flight times are local to each airport.
+  </footer>
+</div>
+
+<script>
+const AP = {
+  AMD:{n:"Ahmedabad", ll:[23.0772,72.6347], tz:"Asia/Kolkata"},
+  DEL:{n:"Delhi",     ll:[28.5562,77.1000], tz:"Asia/Kolkata"},
+  FRA:{n:"Frankfurt", ll:[50.0379,8.5622],  tz:"Europe/Berlin"},
+  YVR:{n:"Vancouver", ll:[49.1947,-123.1792],tz:"America/Vancouver"},
+  YEG:{n:"Edmonton",  ll:[53.3097,-113.5798],tz:"America/Edmonton"},
+};
+const OUT = [
+ {fno:"AI 2938", car:"Air India",                 fr:"AMD",to:"DEL", dloc:"18:55",dlocd:"28 Jun",aloc:"20:40",alocd:"28 Jun", dep:"2026-06-28T18:55:00+05:30",arr:"2026-06-28T20:40:00+05:30"},
+ {fno:"LH 761",  car:"Lufthansa",                 fr:"DEL",to:"FRA", dloc:"02:50",dlocd:"29 Jun",aloc:"08:30",alocd:"29 Jun", dep:"2026-06-29T02:50:00+05:30",arr:"2026-06-29T08:30:00+02:00"},
+ {fno:"LH 6526", car:"Lufthansa (op. Air Canada)",fr:"FRA",to:"YVR", dloc:"10:15",dlocd:"29 Jun",aloc:"11:10",alocd:"29 Jun", dep:"2026-06-29T10:15:00+02:00",arr:"2026-06-29T11:10:00-07:00"},
+ {fno:"AC 2084", car:"Air Canada Rouge",          fr:"YVR",to:"YEG", dloc:"20:40",dlocd:"29 Jun",aloc:"23:14",alocd:"29 Jun", dep:"2026-06-29T20:40:00-07:00",arr:"2026-06-29T23:14:00-06:00"},
+];
+const ALL = OUT;
+const ms = s => new Date(s).getTime();
+
+// ---------- Map ----------
+const map = L.map('map',{scrollWheelZoom:false}).setView([42,-20],2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {attribution:'© OpenStreetMap © CARTO',maxZoom:10}).addTo(map);
+const seen=new Set(); const pts=[];
+function marker(code){
+  if(seen.has(code))return; seen.add(code);
+  L.circleMarker(AP[code].ll,{radius:6,color:"#3b82f6",fillColor:"#7db0ff",fillOpacity:1,weight:2})
+    .addTo(map).bindTooltip(code+" · "+AP[code].n);
+}
+OUT.forEach(l=>{
+  marker(l.fr); marker(l.to);
+  L.polyline([AP[l.fr].ll,AP[l.to].ll],{color:"#22c55e",weight:3,opacity:.85}).addTo(map);
+  pts.push(AP[l.fr].ll,AP[l.to].ll);
+});
+map.fitBounds(L.latLngBounds(pts).pad(0.18));
+const planeMarker = L.marker(AP.AMD.ll,{icon:L.divIcon({html:'✈️',className:'',iconSize:[24,24]})});
+
+// ---------- External links ----------
+const code = f => f.fno.replace(/\s/g,'').toLowerCase();
+document.getElementById('frLive').href = "https://www.flightradar24.com/data/flights/"+code(ALL[0]);
+document.getElementById('fa').href = "https://www.flightaware.com/live/flight/"+ALL[0].fno.replace(/\s/g,'');
+document.getElementById('gcmap').href = "http://www.gcmap.com/mapui?P=AMD-DEL-FRA-YVR-YEG";
+
+// ---------- Stepper nodes ----------
+const stepCodes = ["AMD","DEL","FRA","YVR","YEG"];
+document.getElementById('nodes').innerHTML = stepCodes.map(c=>
+  `<div class="node" data-c="${c}"><div class="dot"></div><div class="code">${c}</div><div class="nm">${AP[c].n}</div></div>`).join('');
+
+// ---------- Leg cards + layover connectors ----------
+function legCard(l,i){
+  return `<div class="card" id="card_${i}">
+    <div class="top">
+      <div><div class="fno">${l.fno}</div><div class="carrier">${l.car}</div></div>
+      <div class="status s-sched" id="st_${i}">—</div>
+    </div>
+    <div class="route">
+      <div class="pt"><div class="pcode">${l.fr}</div><div class="pcity">${AP[l.fr].n}</div>
+        <div class="ptime">${l.dloc}</div><div class="pdate">${l.dlocd}</div></div>
+      <div class="mid">✈<br>${l.fno.split(' ')[0]}</div>
+      <div class="pt"><div class="pcode">${l.to}</div><div class="pcity">${AP[l.to].n}</div>
+        <div class="ptime">${l.aloc}</div><div class="pdate">${l.alocd}</div></div>
+    </div>
+    <div class="miniprog" id="mp_${i}"><div class="f" id="mpf_${i}"></div></div>
+    <div class="cd2" id="cd_${i}"></div>
+    <div class="btns">
+      <a class="btn b1" target="_blank" href="https://www.flightradar24.com/data/flights/${code(l)}">🔵 Track Live</a>
+      <a class="btn b2" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent(l.fno+' flight status')}">⚪ Quick Status</a>
+    </div>
+  </div>`;
+}
+function fmtHM(msv){let m=Math.round(msv/60000);let h=Math.floor(m/60);m-=h*60;return `${h}h ${m}m`;}
+function layover(i){ // layover at OUT[i].to before OUT[i+1]
+  const a=OUT[i].to, gap=ms(OUT[i+1].dep)-ms(OUT[i].arr);
+  const tight=gap < 2*3600*1000;
+  return `<div class="layover" id="lay_${i}">
+      <div class="lay-ic">🛬✈️🛫</div>
+      <div class="lay-tx"><b>Change at ${AP[a].n} (${a})</b><span>${fmtHM(gap)} on the ground${tight?' · short connection':''}</span></div>
+      <div class="lay-st ${tight?'warn':''}" id="layst_${i}">${tight?'⚠ TIGHT':'LAYOVER'}</div>
+    </div>`;
+}
+let html="";
+OUT.forEach((l,i)=>{ html+=legCard(l,i); if(i<OUT.length-1) html+=layover(i); });
+document.getElementById('legs').innerHTML = html;
+
+// ---------- Clock helpers ----------
+function clk(tz){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());}
+function cdate(tz){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short'}).format(new Date());}
+function stamp(tz,d){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);}
+
+// Landing converter (fixed final arrival)
+const finalArr = new Date(OUT[OUT.length-1].arr);
+document.getElementById('landbox').innerHTML =
+  `🛬 <b>Lands in Edmonton:</b> ${stamp("America/Edmonton",finalArr)} (your time)<br>` +
+  `🏠 <b>In India that's:</b> ${stamp("Asia/Kolkata",finalArr)}`;
+
+// Where is the traveller right now?
+function travellerNow(now){
+  if(now < ms(OUT[0].dep)) return {code:OUT[0].fr, air:false};
+  for(let i=0;i<OUT.length;i++){
+    const d=ms(OUT[i].dep), a=ms(OUT[i].arr);
+    if(now>=d && now<=a) return {code:OUT[i].to, air:true};   // in flight, heading to .to
+    if(now < d) return {code:OUT[i].fr, air:false};           // waiting / layover
+  }
+  return {code:OUT[OUT.length-1].to, air:false};               // arrived
+}
+
+function fmtDur(msleft){
+  if(msleft<0)msleft=0;
+  let s=Math.floor(msleft/1000),d=Math.floor(s/86400);s-=d*86400;
+  let h=Math.floor(s/3600);s-=h*3600;let m=Math.floor(s/60);s-=m*60;
+  if(d>0)return `${d}d ${h}h ${m}m`;
+  if(h>0)return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+function interp(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
+
+// ---------- Live tick ----------
+function tick(){
+  const now = Date.now();
+
+  // clocks
+  document.getElementById('ckIN').textContent=clk("Asia/Kolkata");
+  document.getElementById('ckINd').textContent=cdate("Asia/Kolkata");
+  document.getElementById('ckED').textContent=clk("America/Edmonton");
+  document.getElementById('ckEDd').textContent=cdate("America/Edmonton");
+  const tn=travellerNow(now);
+  document.getElementById('ckTR').textContent=clk(AP[tn.code].tz);
+  document.getElementById('ckTRd').textContent=(tn.air?"✈ heading to ":"📍 ")+tn.code+" · "+cdate(AP[tn.code].tz);
+
+  // per-leg status
+  ALL.forEach((l,i)=>{
+    const d=ms(l.dep), a=ms(l.arr);
+    const st=document.getElementById('st_'+i), cd=document.getElementById('cd_'+i);
+    const mp=document.getElementById('mp_'+i), mpf=document.getElementById('mpf_'+i);
+    const card=document.getElementById('card_'+i);
+    st.className='status'; mp.style.display='none'; cd.textContent=''; card.classList.remove('live');
+    if(now < d){
+      const soon=(d-now)<=4*3600*1000;
+      st.classList.add(soon?'s-soon':'s-sched');
+      st.textContent = soon?'BOARDING SOON':'SCHEDULED';
+      cd.textContent = 'Departs in '+fmtDur(d-now);
+    } else if(now <= a){
+      st.classList.add('s-air'); st.textContent='IN AIR'; card.classList.add('live');
+      const p=Math.min(1,(now-d)/(a-d));
+      mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%';
+      cd.textContent = 'Lands in '+fmtDur(a-now)+'  ·  '+(p*100).toFixed(0)+'% of flight';
+    } else {
+      st.classList.add('s-land'); st.textContent='LANDED ✓';
+    }
+  });
+
+  // layover connectors active state
+  for(let i=0;i<OUT.length-1;i++){
+    const lay=document.getElementById('lay_'+i), layst=document.getElementById('layst_'+i);
+    const onGround = now>ms(OUT[i].arr) && now<ms(OUT[i+1].dep);
+    lay.classList.toggle('act',onGround);
+    if(onGround){ layst.className='lay-st now'; layst.textContent='⏳ ON GROUND'; }
+  }
+
+  // overall progress (AMD -> YEG)
+  const firstDep=ms(OUT[0].dep), lastArr=ms(OUT[OUT.length-1].arr);
+  let frac=(now-firstDep)/(lastArr-firstDep); frac=Math.max(0,Math.min(1,frac));
+  document.getElementById('stepfill').style.width=(frac*100)+'%';
+  document.getElementById('planeIcon').style.left=(frac*100)+'%';
+  document.getElementById('ovPct').textContent=(frac*100).toFixed(0)+'% of journey';
+
+  // node states + plane on map
+  let planePos=AP.AMD.ll, activeIdx=-1;
+  OUT.forEach((l,i)=>{
+    const d=ms(l.dep), a=ms(l.arr);
+    if(now>=d && now<=a){activeIdx=i; planePos=interp(AP[l.fr].ll,AP[l.to].ll,(now-d)/(a-d));}
+  });
+  document.querySelectorAll('.node').forEach(node=>{
+    node.classList.remove('done','active');
+    const c=node.getAttribute('data-c');
+    const legEnd=OUT.find(l=>l.to===c), legStart=OUT.find(l=>l.fr===c);
+    if(c==="AMD"){ if(now>=firstDep)node.classList.add('done'); }
+    else if(legEnd && now>ms(legEnd.arr)) node.classList.add('done');
+    if(legStart && now>=ms(legStart.dep) && now<=ms(legStart.arr)) node.classList.add('active');
+  });
+  if(activeIdx>=0){ planeMarker.setLatLng(planePos); if(!map.hasLayer(planeMarker))planeMarker.addTo(map);}
+  else if(map.hasLayer(planeMarker)) map.removeLayer(planeMarker);
+
+  // top banner
+  let cur=ALL.find(l=>now<=ms(l.arr));
+  const bLbl=document.getElementById('bLbl'),bMain=document.getElementById('bMain'),
+        bCd=document.getElementById('bCd'),bNote=document.getElementById('bNote');
+  if(!cur){
+    bLbl.textContent='JOURNEY'; bMain.textContent='Arrived in Edmonton ✓'; bCd.textContent='🎉'; bNote.textContent='';
+  } else {
+    const d=ms(cur.dep), a=ms(cur.arr);
+    if(now<d){
+      bLbl.textContent='NEXT FLIGHT'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
+      bCd.textContent='Departs in '+fmtDur(d-now);
+      bNote.textContent=`Scheduled ${cur.dloc} ${cur.dlocd} (local ${cur.fr})`;
+    } else {
+      bLbl.textContent='IN THE AIR NOW'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
+      bCd.textContent='Lands in '+fmtDur(a-now);
+      bNote.textContent=`Arrives ${cur.aloc} ${cur.alocd} (local ${cur.to})`;
+    }
+  }
+}
+tick(); setInterval(tick,1000);
+</script>
+</body>
+</html>
