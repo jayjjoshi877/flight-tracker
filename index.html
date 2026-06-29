@@ -36,6 +36,8 @@
   .landbox{background:linear-gradient(135deg,#0e2b1c,#11402a);border:1px solid #2f7d52;
     border-radius:14px;padding:13px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.5;color:#d8f5e4;}
   .landbox b{color:#fff;}
+  .disc{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);color:#f1d9a8;border-radius:12px;padding:10px 14px;font-size:12px;line-height:1.5;margin-bottom:16px;}
+  .disc b{color:#ffd479;}
 
   /* Overall progress stepper */
   .stepper{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 14px 10px;margin-bottom:16px;}
@@ -120,6 +122,7 @@
     <div class="clk me"><div class="ck-loc">📍 Edmonton (you)</div><div class="ck-t" id="ckED">--:--:--</div><div class="ck-d" id="ckEDd"></div></div>
   </div>
   <div class="landbox" id="landbox">🛬 Calculating landing time…</div>
+  <div class="disc">⚠ The status below is based on the <b>scheduled timetable</b> — a flight can land earlier or later. For the <b>real</b> time &amp; position, tap <b>🔴 Live Map</b> or <b>⚪ Status</b> on any flight.</div>
 
   <div class="stepper">
     <div class="nodes" id="nodes"></div>
@@ -291,7 +294,7 @@ function tick(){
       st.classList.add('s-air'); st.textContent='IN AIR'; card.classList.add('live');
       const p=Math.min(1,(now-d)/(a-d));
       mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%';
-      cd.textContent = 'Lands in '+fmtDur(a-now)+'  ·  '+(p*100).toFixed(0)+'% of flight';
+      cd.textContent = 'Scheduled to land in '+fmtDur(a-now)+' · '+(p*100).toFixed(0)+'% · tap Status for actual';
     } else {
       st.classList.add('s-land'); st.textContent='LANDED ✓';
     }
@@ -342,9 +345,9 @@ function tick(){
       bCd.textContent='Departs in '+fmtDur(d-now);
       bNote.textContent=`Scheduled ${cur.dloc} ${cur.dlocd} (local ${cur.fr})`;
     } else {
-      bLbl.textContent='IN THE AIR NOW'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
-      bCd.textContent='Lands in '+fmtDur(a-now);
-      bNote.textContent=`Arrives ${cur.aloc} ${cur.alocd} (local ${cur.to})`;
+      bLbl.textContent='IN THE AIR (scheduled)'; bMain.textContent=`${cur.fno} · ${cur.fr} → ${cur.to}`;
+      bCd.textContent='Sched. landing in '+fmtDur(a-now);
+      bNote.textContent=`Scheduled arrival ${cur.aloc} ${cur.alocd} (local ${cur.to}) · tap Status for actual`;
     }
   }
 }
