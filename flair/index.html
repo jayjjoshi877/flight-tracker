@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Tracker · Toronto → Edmonton</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{--bg:#0b1220;--card:#141d33;--card2:#1b2742;--line:#26324f;--txt:#eaf0ff;--mut:#93a2c4;--blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;}
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0b1220,#0e1730);color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:16px;}
+  .wrap{max-width:760px;margin:0 auto;}
+  h1{font-size:21px;margin:0 0 4px;text-align:center;}
+  .sub{color:var(--mut);font-size:13px;text-align:center;margin-bottom:16px;}
+  .banner{background:linear-gradient(135deg,#13294a,#1b3a6b);border:1px solid #2b4f86;border-radius:16px;padding:16px 18px;margin-bottom:14px;text-align:center;}
+  .banner .lbl{font-size:11px;letter-spacing:1.5px;color:#9fc0ff;font-weight:700;}
+  .banner .main{font-size:20px;font-weight:800;margin:6px 0;}
+  .banner .cd{font-size:30px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;}
+  .banner .note{font-size:12px;color:var(--mut);margin-top:4px;}
+  .clocks{display:flex;gap:10px;margin-bottom:12px;}
+  .clk{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center;}
+  .clk.me{border-color:#2b6cb0;background:linear-gradient(135deg,#13233f,#16345c);}
+  .ck-loc{font-size:11px;color:var(--mut);font-weight:700;margin-bottom:4px;}
+  .ck-t{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .ck-d{font-size:10.5px;color:var(--mut);margin-top:2px;}
+  .landbox{background:linear-gradient(135deg,#0e2b1c,#11402a);border:1px solid #2f7d52;border-radius:14px;padding:13px 16px;margin-bottom:12px;font-size:13.5px;line-height:1.5;color:#d8f5e4;}
+  .landbox b{color:#fff;}
+  .disc{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);color:#f1d9a8;border-radius:12px;padding:10px 14px;font-size:12px;line-height:1.5;margin-bottom:16px;}
+  .disc b{color:#ffd479;}
+  #map{height:320px;border-radius:16px;border:1px solid var(--line);margin-bottom:8px;}
+  .maplinks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .maplinks a{flex:1;min-width:120px;text-align:center;text-decoration:none;font-size:12px;font-weight:700;padding:9px;border-radius:10px;background:var(--card2);color:var(--txt);border:1px solid var(--line);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;}
+  .card.live{border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,158,11,.2);}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  .fno{font-size:16px;font-weight:800;}
+  .carrier{font-size:11px;color:var(--mut);}
+  .status{font-size:11px;font-weight:800;padding:5px 10px;border-radius:20px;white-space:nowrap;}
+  .s-sched{background:rgba(147,162,196,.15);color:var(--mut);border:1px solid #33415f;}
+  .s-soon{background:rgba(245,158,11,.18);color:var(--amber);border:1px solid rgba(245,158,11,.4);}
+  .s-air{background:rgba(59,130,246,.2);color:#7db0ff;border:1px solid rgba(59,130,246,.5);}
+  .s-land{background:rgba(34,197,94,.18);color:#5ee08a;border:1px solid rgba(34,197,94,.4);}
+  .route{display:flex;align-items:center;gap:8px;margin:4px 0 10px;}
+  .pt{flex:1;text-align:center;}
+  .pcode{font-size:24px;font-weight:800;}
+  .pcity{font-size:10px;color:var(--mut);}
+  .ptime{font-size:14px;margin-top:3px;}
+  .pdate{font-size:10px;color:var(--mut);}
+  .mid{flex:0 0 auto;text-align:center;color:var(--blue);font-size:11px;}
+  .miniprog{height:4px;background:var(--line);border-radius:4px;margin:8px 16px 2px;position:relative;display:none;}
+  .miniprog .f{position:absolute;height:100%;background:var(--blue);border-radius:4px;}
+  .cd2{font-size:12px;color:var(--amber);text-align:center;margin:8px 0;font-weight:700;}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;}
+  a.btn{flex:1;min-width:110px;text-align:center;text-decoration:none;font-weight:700;font-size:12px;padding:10px;border-radius:10px;}
+  .b1{background:var(--blue);color:#fff;}
+  .b2{background:transparent;color:var(--txt);border:1px solid var(--line);}
+  footer{color:var(--mut);font-size:11.5px;text-align:center;margin-top:14px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✈️ Flight Tracker — Toronto → Edmonton</h1>
+  <div class="sub">Flair F8&nbsp;637 · live status updates automatically on this page</div>
+
+  <div class="banner">
+    <div class="lbl" id="bLbl">FLIGHT</div>
+    <div class="main" id="bMain">—</div>
+    <div class="cd" id="bCd">—</div>
+    <div class="note" id="bNote"></div>
+  </div>
+
+  <div class="clocks">
+    <div class="clk"><div class="ck-loc">🏠 India</div><div class="ck-t" id="ckIN">--:--:--</div><div class="ck-d" id="ckINd"></div></div>
+    <div class="clk"><div class="ck-loc">🧳 Traveller</div><div class="ck-t" id="ckTR">--:--:--</div><div class="ck-d" id="ckTRd"></div></div>
+    <div class="clk me"><div class="ck-loc">📍 Edmonton</div><div class="ck-t" id="ckED">--:--:--</div><div class="ck-d" id="ckEDd"></div></div>
+  </div>
+  <div class="landbox" id="landbox">🛬 Calculating landing time…</div>
+  <div class="disc">✈ <b>LIVE</b> = real position from live aircraft signals (updates every minute). When the plane isn't in radar range, status falls back to the <b>scheduled timetable</b> and may differ from the actual time — tap <b>⚪ Status</b> to confirm.</div>
+
+  <div id="map"></div>
+  <div class="maplinks">
+    <a id="frLive" target="_blank">🗺️ Flightradar24 Live Map</a>
+    <a id="gcmap" target="_blank">🌍 Route Map</a>
+    <a id="fa" target="_blank">📡 FlightAware</a>
+  </div>
+
+  <div id="legs"></div>
+
+  <footer>
+    Clocks &amp; status update automatically from your device. Flight times are local to each airport.
+  </footer>
+</div>
+
+<script>
+const AP = {
+  YYZ:{n:"Toronto",  ll:[43.6777,-79.6248], tz:"America/Toronto"},
+  YEG:{n:"Edmonton", ll:[53.3097,-113.5798], tz:"America/Edmonton"},
+};
+const OUT = [
+ {fno:"F8 637", car:"Flair Airlines", fr:"YYZ",to:"YEG", dloc:"22:10",dlocd:"15 Jul",aloc:"00:25",alocd:"16 Jul", dep:"2026-07-15T22:10:00-04:00",arr:"2026-07-16T00:25:00-06:00"},
+];
+const ALL = OUT;
+const ms = s => new Date(s).getTime();
+
+const map = L.map('map',{scrollWheelZoom:false}).setView([49,-96],4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:10}).addTo(map);
+const pts=[];
+Object.keys(AP).forEach(c=>{ L.circleMarker(AP[c].ll,{radius:6,color:"#3b82f6",fillColor:"#7db0ff",fillOpacity:1,weight:2}).addTo(map).bindTooltip(c+" · "+AP[c].n); });
+OUT.forEach(l=>{ L.polyline([AP[l.fr].ll,AP[l.to].ll],{color:"#22c55e",weight:3,opacity:.85}).addTo(map); pts.push(AP[l.fr].ll,AP[l.to].ll); });
+map.fitBounds(L.latLngBounds(pts).pad(0.3));
+const planeMarker = L.marker(AP.YYZ.ll,{icon:L.divIcon({html:'✈️',className:'',iconSize:[24,24]})});
+
+const ICAO = {F8:'FLE',AI:'AIC',LH:'DLH',AC:'ACA',EK:'UAE'};
+function callsign(l){const p=l.fno.split(' ');return (ICAO[p[0]]||p[0])+p[1];}
+document.getElementById('frLive').href = "https://www.flightradar24.com/"+callsign(ALL[0]);
+document.getElementById('fa').href = "https://www.flightaware.com/live/flight/"+callsign(ALL[0]);
+document.getElementById('gcmap').href = "http://www.gcmap.com/mapui?P=YYZ-YEG";
+
+function legCard(l,i){
+  return `<div class="card" id="card_${i}">
+    <div class="top"><div><div class="fno">${l.fno}</div><div class="carrier">${l.car}</div></div>
+      <div class="status s-sched" id="st_${i}">—</div></div>
+    <div class="route">
+      <div class="pt"><div class="pcode">${l.fr}</div><div class="pcity">${AP[l.fr].n}</div><div class="ptime">${l.dloc}</div><div class="pdate">${l.dlocd}</div></div>
+      <div class="mid">✈<br>${l.fno.split(' ')[0]}</div>
+      <div class="pt"><div class="pcode">${l.to}</div><div class="pcity">${AP[l.to].n}</div><div class="ptime">${l.aloc}</div><div class="pdate">${l.alocd}</div></div>
+    </div>
+    <div class="miniprog" id="mp_${i}"><div class="f" id="mpf_${i}"></div></div>
+    <div class="cd2" id="cd_${i}"></div>
+    <div class="btns">
+      <a class="btn b1" target="_blank" href="https://www.flightradar24.com/${callsign(l)}">🔴 Live Map</a>
+      <a class="btn b2" target="_blank" href="https://www.flightaware.com/live/flight/${callsign(l)}">✈️ FlightAware</a>
+      <a class="btn b2" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent(l.fno+' flight status')}">⚪ Status</a>
+    </div></div>`;
+}
+document.getElementById('legs').innerHTML = OUT.map((l,i)=>legCard(l,i)).join('');
+
+function clk(tz){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());}
+function cdate(tz){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short'}).format(new Date());}
+function stamp(tz,d){return new Intl.DateTimeFormat('en-GB',{timeZone:tz,weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(d);}
+const finalArr = new Date(OUT[OUT.length-1].arr);
+document.getElementById('landbox').innerHTML =
+  `🛬 <b>Lands in Edmonton:</b> ${stamp("America/Edmonton",finalArr)} (local)<br>`+
+  `🏠 <b>In India that's:</b> ${stamp("Asia/Kolkata",finalArr)}`;
+
+function travellerNow(now){
+  if(now < ms(OUT[0].dep)) return {code:OUT[0].fr};
+  if(now <= ms(OUT[0].arr)) return {code:OUT[0].to,air:true};
+  return {code:OUT[0].to};
+}
+function fmtDur(msleft){ if(msleft<0)msleft=0; let s=Math.floor(msleft/1000),d=Math.floor(s/86400);s-=d*86400;let h=Math.floor(s/3600);s-=h*3600;let m=Math.floor(s/60);s-=m*60; if(d>0)return `${d}d ${h}h ${m}m`; if(h>0)return `${h}h ${m}m ${s}s`; return `${m}m ${s}s`; }
+
+const live = [];
+async function refreshLive(){
+  for(let i=0;i<OUT.length;i++){
+    try{
+      const r = await fetch('https://api.airplanes.live/v2/callsign/'+callsign(OUT[i]));
+      const j = await r.json();
+      if(j.ac && j.ac.length){ const a=j.ac[0]; const onG=(a.alt_baro==='ground'||a.alt_baro==null);
+        live[i]={found:true,ground:onG,alt:(onG?0:Number(a.alt_baro)||0),gs:Number(a.gs)||0,lat:a.lat,lon:a.lon};
+      } else { live[i]={found:false}; }
+    }catch(e){ if(!live[i]) live[i]={found:false}; }
+    await new Promise(res=>setTimeout(res,1200));
+  }
+}
+refreshLive(); setInterval(refreshLive,60000);
+
+function tick(){
+  const now = Date.now();
+  document.getElementById('ckIN').textContent=clk("Asia/Kolkata"); document.getElementById('ckINd').textContent=cdate("Asia/Kolkata");
+  document.getElementById('ckED').textContent=clk("America/Edmonton"); document.getElementById('ckEDd').textContent=cdate("America/Edmonton");
+  const tn=travellerNow(now);
+  document.getElementById('ckTR').textContent=clk(AP[tn.code].tz);
+  document.getElementById('ckTRd').textContent=(tn.air?"✈ heading to ":"📍 ")+tn.code+" · "+cdate(AP[tn.code].tz);
+
+  ALL.forEach((l,i)=>{
+    const d=ms(l.dep), a=ms(l.arr);
+    const st=document.getElementById('st_'+i), cd=document.getElementById('cd_'+i);
+    const mp=document.getElementById('mp_'+i), mpf=document.getElementById('mpf_'+i);
+    const card=document.getElementById('card_'+i);
+    st.className='status'; mp.style.display='none'; cd.textContent=''; card.classList.remove('live');
+    const lv=live[i];
+    if(lv && lv.found && !lv.ground){
+      st.classList.add('s-air'); st.textContent='✈ IN AIR · LIVE'; card.classList.add('live');
+      cd.textContent='Live · '+(lv.alt).toLocaleString()+' ft · '+Math.round(lv.gs)+' kt';
+      const p=Math.min(1,Math.max(0,(now-d)/(a-d))); mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%';
+    } else if(lv && lv.found && lv.ground){
+      if(now<d){ st.classList.add('s-soon'); st.textContent='AT AIRPORT · LIVE'; cd.textContent='On the ground before departure'; }
+      else { st.classList.add('s-land'); st.textContent='ON GROUND · LIVE'; cd.textContent='On the ground (landed / taxiing)'; }
+    } else {
+      if(now < d){ const soon=(d-now)<=4*3600*1000; st.classList.add(soon?'s-soon':'s-sched'); st.textContent=soon?'BOARDING SOON':'SCHEDULED'; cd.textContent='Departs in '+fmtDur(d-now); }
+      else if(now <= a){ const p=(now-d)/(a-d);
+        if(p>=0.85){ st.classList.add('s-land'); st.textContent='🛬 LIKELY LANDED'; cd.textContent='Not airborne now · tap Status to confirm'; }
+        else { st.classList.add('s-air'); st.textContent='EN ROUTE (sched)'; mp.style.display='block'; mpf.style.width=(p*100).toFixed(0)+'%'; cd.textContent='Sched. landing in '+fmtDur(a-now)+' · not currently tracked'; } }
+      else { st.classList.add('s-land'); st.textContent='LANDED (likely)'; cd.textContent='Past scheduled arrival · tap Status to confirm'; }
+    }
+  });
+
+  let lp=null;
+  OUT.forEach((l,i)=>{ if(live[i]&&live[i].found&&!live[i].ground&&live[i].lat!=null) lp=[live[i].lat,live[i].lon]; });
+  if(lp){ planeMarker.setLatLng(lp); if(!map.hasLayer(planeMarker))planeMarker.addTo(map); }
+  else if(map.hasLayer(planeMarker)) map.removeLayer(planeMarker);
+
+  const bLbl=document.getElementById('bLbl'),bMain=document.getElementById('bMain'),bCd=document.getElementById('bCd'),bNote=document.getElementById('bNote');
+  const l=OUT[0], d=ms(l.dep), a=ms(l.arr), lv=live[0];
+  if(lv && lv.found && !lv.ground){
+    bLbl.textContent='✈ IN THE AIR · LIVE'; bMain.textContent=`${l.fno} · ${l.fr} → ${l.to}`;
+    bCd.textContent=(lv.alt).toLocaleString()+' ft'; bNote.textContent='Live altitude · '+Math.round(lv.gs)+' kt ground speed';
+  } else if(now<d){
+    bLbl.textContent='NEXT FLIGHT'; bMain.textContent=`${l.fno} · ${l.fr} → ${l.to}`;
+    bCd.textContent='Departs in '+fmtDur(d-now); bNote.textContent=`Scheduled ${l.dloc} ${l.dlocd} (local ${l.fr})`;
+  } else if(now<=a){
+    bLbl.textContent='EN ROUTE (scheduled)'; bMain.textContent=`${l.fno} · ${l.fr} → ${l.to}`;
+    bCd.textContent='Sched. landing in '+fmtDur(a-now); bNote.textContent='Not currently tracked · tap Status for the actual time';
+  } else {
+    bLbl.textContent='JOURNEY'; bMain.textContent='Arrived in Edmonton ✓'; bCd.textContent='🎉'; bNote.textContent='';
+  }
+}
+tick(); setInterval(tick,1000);
+</script>
+</body>
+</html>
